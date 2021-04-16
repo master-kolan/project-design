@@ -8,9 +8,21 @@
             <div class="menu-content">
                 <ul>
                     <li class="menu-item">
+                        <UserOutlined/>
+                        <router-link :to="{name: 'userManagement'}">
+                            <span class="menu-item-name"> 用户管理 </span>
+                        </router-link>
+                    </li>
+                    <li class="menu-item">
+                        <icon-font type="icon-bridge" />
+                        <router-link :to="{name: 'bridgeTable'}">
+                            <span class="menu-item-name"> 桥梁表管理 </span>
+                        </router-link>
+                    </li>
+                    <li class="menu-item">
                         <FileOutlined/>
                         <router-link :to="{name: 'fileManagement'}">
-                            <span class="menu-item-name"> 文件管理 </span>
+                            <span class="menu-item-name"> 通用图管理 </span>
                         </router-link>
                     </li>
                     <li class="menu-item">
@@ -36,13 +48,18 @@
 </template>
 
 <script>
-    import { FileOutlined, PlusOutlined, ProjectOutlined } from '@ant-design/icons-vue';
+    import { UserOutlined, FileOutlined, PlusOutlined, ProjectOutlined, createFromIconfontCN } from '@ant-design/icons-vue';
+    const IconFont = createFromIconfontCN({
+        scriptUrl: '//at.alicdn.com/t/font_2491883_2cc5hw1o0la.js',
+    });
     export default {
         name: "index",
         components: {
+            UserOutlined,
             PlusOutlined,
             FileOutlined,
-            ProjectOutlined
+            ProjectOutlined,
+            IconFont,
         }
     }
 </script>
@@ -54,7 +71,7 @@
     .home-page-slider {
         background: #132434;
         height: 100vh;
-        width: 250px;
+        flex: 0 0 200px;
         border-radius: 15px 0 0 15px;
         color: #dbdfeb;
     }

@@ -48,6 +48,7 @@ export function getImageAndTerrainPos(origin, radius, zoom = 12) {
         imagePos,
         terrainPos,
         coordinates: [w, n, e, n, e, s, w, s, w, n],
+        center: [(w + e)/2, (n + s)/2],
         box: { w, s, e, n },
         feature: {
             type: "Feature",

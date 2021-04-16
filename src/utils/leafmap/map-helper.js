@@ -75,9 +75,9 @@ class MapHelper {
         let container = document.createElement('div');
         container.innerHTML =`<div style="display: flex">lng lat: ${MapHelper.llToString(MapHelper.swap(ll))}</div>`;
         let buildButton = document.createElement('div');
-        buildButton.innerHTML =`<a style="float: left"  href='#' id='buildLink'>Build Terrain</a>`;
+        buildButton.innerHTML =`<a style="float: left"  href='javascript:;' id='buildLink'>Build Terrain</a>`;
         let cancelButton = document.createElement('div');
-        cancelButton.innerHTML =`<a style="margin-left: 40px" href='#' id='cancelLink'>[x]</a></div>`;
+        cancelButton.innerHTML =`<a style="margin-left: 40px" href='javascript:;' id='cancelLink'>[x]</a></div>`;
         container.append(buildButton, cancelButton);
         // container.append($('<span class="bold">').text("abc..."))
         container.children[1].addEventListener('click', onBuild);

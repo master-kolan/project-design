@@ -8,7 +8,6 @@
     "lint": "vue-cli-service lint"
   },
   "dependencies": {
-    "@ant-design/icons": "^4.5.0",
     "@mapbox/sphericalmercator": "^1.1.0",
     "@mapbox/tile-cover": "^3.0.2",
     "@turf/destination": "^6.3.0",
@@ -21,10 +20,9 @@
     "core-js": "^3.6.5",
     "leaflet": "^1.7.1",
     "three": "^0.126.0",
-    "three-geo": "^1.4.3",
-    "threelet": "^0.10.0",
     "vue": "^3.0.0",
-    "vue-router": "^4.0.0"
+    "vue-router": "^4.0.0",
+    "vuex": "^4.0.0-beta.4"
   },
   "devDependencies": {
     "@ant-design/icons-vue": "^6.0.1",
@@ -36,6 +34,8 @@
     "babel-eslint": "^10.1.0",
     "eslint": "^6.7.2",
     "eslint-plugin-vue": "^7.0.0-0",
+    "less": "^4.1.1",
+    "less-loader": "^5.0.0",
     "ndarray": "^1.0.19",
     "vue-cli-plugin-cesium": "~1.1.7"
   },

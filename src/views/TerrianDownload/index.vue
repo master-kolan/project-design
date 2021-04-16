@@ -28,6 +28,7 @@
     import {generateTile} from "../../utils/three";
     import '../../utils/three/OrbitControls'
     import MapHelper from "../../utils/leafmap/map-helper";
+    import icon from '../../assets/images/marker-icon.png';
     const THREE = require('three');
     export default {
         name: "index",
@@ -67,14 +68,14 @@
         },
         methods: {
             setView() {
-                let { coordinates } = this.pos;
+                let { coordinates, center } = this.pos;
                 this.leafmap.clearTmpLayers();
                 this.leafmap.setView([Number(this.longitude), Number(this.latitude)], getImageAndTerrainPos([this.longitude, this.latitude], this.radius).feature);
                 this.clean();
                 generateTile(this.group, this.pos, this.radius);
-                this.generateCesiumPolyan(coordinates);
+                this.generateCesiumPolyan(coordinates, center);
             },
-            generateCesiumPolyan(coordinates) {
+            generateCesiumPolyan(coordinates, center) {
                 // eslint-disable-next-line no-undef
                 let stripeMaterial = new Cesium.StripeMaterialProperty({evenColor: Cesium.Color.BLUE.withAlpha(0.5), oddColor: Cesium.Color.BLUE.withAlpha(0.5),
                     repeat: 5.0,
@@ -90,7 +91,16 @@
                         material: stripeMaterial,
                     }
                 });
-                // this.viewer.entities.add(entity);
+                console.log(center);
+                this.viewer.entities.add({
+                    // eslint-disable-next-line no-undef
+                    position : Cesium.Cartesian3.fromDegrees(center[0], center[1]),
+                    billboard : {
+                        image : icon,
+                        width : 25,
+                        height : 41
+                    }
+                });
                 this.viewer.zoomTo(this.viewer.entities)
             },
             initCesium() {
@@ -114,11 +124,19 @@
                     sceneMode: 3,                       // [ Number,初始场景模式 1 2D模式 2 2D循环模式 3 3D模式  Cesium.SceneMode ]
                     fullscreenElement: document.body,   // [ Object, 全屏时渲染的HTML元素 ]
                 });
-                this.viewer._cesiumWidget._creditContainer.style.display = "none"
+                this.viewer._cesiumWidget._creditContainer.style.display = "none";
+                this.viewer.imageryLayers.remove(this.viewer.imageryLayers.get(0));
+                let img = this.viewer.imageryLayers.addImageryProvider(
+                    // eslint-disable-next-line no-undef
+                    new Cesium.ArcGisMapServerImageryProvider({
+                        url: 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer',
+                        baseLayerPicker: false
+                    })
+                );
+                img.brightness = 0.8;
             },
             initThreeJsView() {
                 const scene = new THREE.Scene();
-                // primary camera view
                 const renderer = new THREE.WebGLRenderer({antialias: true});
                 const canvas = document.querySelector('#canvas')
                 renderer.setPixelRatio(window.devicePixelRatio);
@@ -229,7 +247,6 @@
 
     #canvas {
         margin: 20px;
-        width: 100%;
         height: calc(100vh - 150px);
     }
 
