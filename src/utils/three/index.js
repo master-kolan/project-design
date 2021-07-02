@@ -19,6 +19,17 @@ const computeSeamRows = (row, col) => {
     return rows;
 };
 
+const getElevationFromBuffer = (buffer) => {
+    const elevations = [];
+    for (let i = 0; i < buffer.data.length; i += 4) {
+        const R = buffer.data[i];
+        const G = buffer.data[i + 1];
+        const B = buffer.data[i + 2];
+        elevations.push(-10000 + ((R * 256 * 256 + G * 256 + B) * 0.01));
+    }
+    return elevations;
+}
+
 export function generateTile(group, pos, radius) {
     const uintMeter = 1 / (radius * Math.pow(2, 0.5) * 1000);
     const vertexMap = {};
@@ -40,13 +51,7 @@ export function generateTile(group, pos, radius) {
     })).then(bufferArray => {
         bufferArray.forEach((buffer, i) => {
             if (buffer) {
-                let elevations = Array();
-                for (let i = 0; i < buffer.data.length; i += 4) {
-                    const R = buffer.data[i];
-                    const G = buffer.data[i + 1];
-                    const B = buffer.data[i + 2];
-                    elevations.push(-10000 + ((R * 256 * 256 + G * 256 + B) * 0.1));
-                }
+                let elevations = getElevationFromBuffer(buffer);
                 imagePos.forEach(zoompos => {
                     let {terrainStr} = zoomposMap[str(zoompos)];
                     if (terrainStr === str(terrainPos[i])) {
@@ -65,6 +70,29 @@ export function generateTile(group, pos, radius) {
                 group.add(_generateTile(vertexMap[str(zoompos)].vertex, texture, cSegments));
             });
         });
+    });
+}
+
+export function generateTileByFile(file, group) {
+    getBufferData(file).then(buffer => {
+        if (buffer) {
+            let elevations = getElevationFromBuffer(buffer);
+            const vertex = [];
+            for (let i = 0; i < 256; i++)
+                for (let j = 0; j < 256; j++) {
+                    vertex.push(- 0.5 + j / 256, - 0.5 +  i / 256, elevations[i * 256 + j] / 4000);
+                }
+            let geom = new THREE.PlaneBufferGeometry(
+                1, 1, 255, 255);
+            geom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(vertex), 3));
+            group.add(new THREE.Mesh(geom,
+                new THREE.MeshBasicMaterial({
+                    wireframe: false,
+                    side: THREE.BackSide,
+                    color: 0xffffff,
+                })
+            ));
+        }
     });
 }
 
@@ -101,7 +129,7 @@ function  _generateTile(vertex, texture, cSegments) {
     geom.setAttribute( 'position', new THREE.BufferAttribute(new Float32Array(vertex), 3 ) );
     return new THREE.Mesh(geom,
         new THREE.MeshBasicMaterial({
-            wireframe: true,
+            wireframe: false,
             side: THREE.FrontSide,
             map: texture,
             color: 0xcccccc,

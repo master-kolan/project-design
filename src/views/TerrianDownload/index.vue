@@ -10,6 +10,8 @@
                 <a-input class="option-item" addon-before="纬度" v-model:value="latitude" />
                 <a-input class="option-item" addon-before="半径(km)" v-model:value="radius" />
                 <a-button class="option-item" @click="setView"><EnvironmentOutlined/>跳转</a-button>
+                <a-button class="option-item" @click="showModal = true"><EnvironmentOutlined/>加载高程</a-button>
+                <a-button class="option-item" @click="showIsoLine"><EnvironmentOutlined/>显示等高线</a-button>
                 <a-button class="option-item" @click="downloadTerrain"><DownloadOutlined/>下载</a-button>
             </div>
             <div id="canvas"></div>
@@ -18,22 +20,101 @@
             <div id="dialog"></div>
         </div>
     </div>
+    <a-modal
+            v-model:visible="showModal"
+            title="加载高程文件"
+            @ok="loadTerrain">
+        <a-form>
+            <a-upload
+                    name="avatar"
+                    list-type="picture-card"
+                    class="avatar-uploader"
+                    :show-upload-list="false"
+                    @change="handleChange"
+            >
+                <img v-if="imageUrl" :src="imageUrl" alt="dem" />
+                <div v-else>
+                    <div class="ant-upload-text">select</div>
+                </div>
+            </a-upload>
+        </a-form>
+    </a-modal>
 </template>
 
 <script>
+    const tex = require('/src/assets/images/color.png');
     import axios from 'axios';
     import {CaretLeftOutlined, DownloadOutlined, EnvironmentOutlined} from "@ant-design/icons-vue";
     import {getUriMapbox} from "../../mapbox";
     import {getImageAndTerrainPos} from "../../utils";
-    import {generateTile} from "../../utils/three";
+    import {generateTile, generateTileByFile} from "../../utils/three";
     import '../../utils/three/OrbitControls'
     import MapHelper from "../../utils/leafmap/map-helper";
     import icon from '../../assets/images/marker-icon.png';
     const THREE = require('three');
+    const shader = {
+        uniforms: {
+            radius : {
+                type: 'f',
+                value: 5.0
+            },
+            colorTex:  {
+                type: 't',
+                value: new THREE.TextureLoader().load(tex)
+            }
+        },
+        extensions: {
+            derivatives: true,
+        },
+        vertexShader: /* glsl */`
+        uniform float radius;
+        varying vec2 vUv;
+		varying vec3 wPosition;
+		void main() {
+			#include <begin_vertex>
+			#include <project_vertex>
+			vUv = uv;
+			wPosition = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;
+			wPosition.y *= 4000.;
+		}
+	`,
+        fragmentShader: /* glsl */`
+        varying vec2 vUv;
+		varying vec3 wPosition;
+		uniform sampler2D colorTex;
+		uniform sampler2D heightTex;
+		vec4 powers(float x) { return vec4(x*x*x, x*x, x, 1.); }
+        vec4 spline(float x, vec4 c0, vec4 c1, vec4 c2, vec4 c3) {
+            vec4 BS_A = vec4(3., -6., 0., 4.) / 6.;
+            vec4 BS_B = vec4(-1., 6., -12., 8.) / 6.;
+            return c0 * dot(BS_B, powers(x + 1.)) + c1 * dot(BS_A, powers(x)) + c2 * dot(BS_A, powers(1. - x)) + c3 * dot(BS_B, powers(2. - x));
+        }
+        #define SAM(a,b)  texture2D(tex, (i+vec2(a,b)+0.5)/res, -99.0)
+            vec4 texture_Bicubic(sampler2D tex, vec2 t) {
+            vec2 res = vec2(256, 256);
+            vec2 p = res * t - .5, f = fract(p), i = floor(p);
+            return spline(f.y, spline(f.x, SAM(-1, -1), SAM(0, -1), SAM(1, -1), SAM(2, -1)), spline(f.x, SAM(-1, 0), SAM(0, 0), SAM(1, 0), SAM(2, 0)),spline(f.x, SAM(-1, 1), SAM(0, 1), SAM(1, 1), SAM(2, 1)),spline(f.x, SAM(-1, 2), SAM(0, 2), SAM(1, 2), SAM(2, 2)));
+        }
+		void main() {
+		    if (wPosition.y < 1.) {discard;}
+            vec3 rgb = texture_Bicubic(heightTex, vUv).rgb * 255.;
+            float height = -10000. + ((rgb.r * 256. * 256. + rgb.g * 256. + rgb.b) * .01);
+			float dist = abs(mod(height, 12.) - .5);
+			vec4 linesColor = vec4(1, 0.196, 0.219, 1.0 );
+			float dz = fwidth(height) * 4.;
+			// float lines = smoothstep(dz, 0, abs(dist - .5));
+            float lines = max(min((3. - 2. * dist) * dist * dist, dz), 0.);
+            gl_FragColor = mix(texture2D(colorTex,vUv),linesColor, lines);
+		}
+	`,
+
+    };
     export default {
         name: "index",
         data() {
             return {
+                showModal: false,
+                imageUrl: '',
                 longitude: 7.9904,
                 latitude: 46.5763,
                 radius: 5,
@@ -67,6 +148,16 @@
             this.initThreeJsView();
         },
         methods: {
+            getBase64(img, callback) {
+                const reader = new FileReader();
+                reader.addEventListener('load', () => callback(reader.result));
+                reader.readAsDataURL(img);
+            },
+            handleChange(info) {
+                this.getBase64(info.file.originFileObj, (base64Url) => {
+                    this.imageUrl = base64Url;
+                });
+            },
             setView() {
                 let { coordinates, center } = this.pos;
                 this.leafmap.clearTmpLayers();
@@ -74,6 +165,29 @@
                 this.clean();
                 generateTile(this.group, this.pos, this.radius);
                 this.generateCesiumPolyan(coordinates, center);
+            },
+            loadTerrain() {
+                this.clean();
+                generateTileByFile(this.imageUrl, this.group);
+                this.showModal = false;
+            },
+            showIsoLine() {
+                this.group.traverse( c => {
+                    if (c.isMesh) {
+                        shader.uniforms.heightTex = {
+                            type: 't',
+                            value: new THREE.TextureLoader().load(this.imageUrl)
+                        };
+                        c.material = new THREE.ShaderMaterial(shader);
+                        // c.material =  new THREE.MeshBasicMaterial({
+                        //     wireframe: false,
+                        //     map: THREE.ImageUtils.loadTexture(tex)
+                        // })
+                        c.material.side = 2;
+                        c.receiveShadow = false;
+                        c.castShadow = false;
+                    }
+                });
             },
             generateCesiumPolyan(coordinates, center) {
                 // eslint-disable-next-line no-undef
@@ -91,7 +205,6 @@
                         material: stripeMaterial,
                     }
                 });
-                console.log(center);
                 this.viewer.entities.add({
                     // eslint-disable-next-line no-undef
                     position : Cesium.Cartesian3.fromDegrees(center[0], center[1]),
@@ -143,8 +256,9 @@
                 renderer.setSize(canvas.clientWidth, canvas.clientHeight);
                 renderer.setClearColor(0x000000);
                 renderer.shadowMap.enabled = true;
+                let aspect = [canvas.clientWidth / window.innerWidth, canvas.clientHeight / window.innerHeight]
                 canvas.appendChild(renderer.domElement);
-                const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 1000);
+                const camera = new THREE.PerspectiveCamera(60, 1, 0.01, 1000);
                 camera.position.set(0, 1, 2);
                 camera.up.set(0, 1, 0);
                 camera.lookAt(scene.position);
@@ -165,6 +279,14 @@
                 this.group = new THREE.Group();
                 this.group.rotation.x = - Math.PI/2;
                 scene.add(this.group);
+
+                function onWindowResize() {
+                    camera.aspect = window.innerWidth / window.innerHeight;
+                    renderer.setPixelRatio( window.devicePixelRatio );
+                    renderer.setSize( window.innerWidth * aspect[0], window.innerHeight * aspect[1]);
+                    camera.updateProjectionMatrix();
+                }
+                window.addEventListener( 'resize', onWindowResize, false );
 
                 const render = () => {
                     requestAnimationFrame(render)
